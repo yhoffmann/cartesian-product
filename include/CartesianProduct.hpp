@@ -2,6 +2,7 @@
 #define CARTESIAN_PRODUCT_HPP_
 
 #include <array>
+#include <tuple>
 #include <vector>
 
 /**
@@ -13,10 +14,27 @@
  * @param T The type that the vectors hold
  * @param N The number of vectors to combine (dimension)
  */
-template <typename T, std::size_t N>
+template <typename... Ts>
 class CartesianProduct {
+  /**
+   * @brief The number of dimesions
+   */
+  static constexpr const std::size_t N = sizeof...(Ts);
+  using Containers = std::tuple<std::vector<Ts>...>;
+  using Idcs = std::array<std::size_t, N>;
+
  public:
-  using Vec = const std::vector<T>*;
+  /**
+   * @brief The number of dimensions
+   *
+   * @returns The number of dimesion
+   */
+  static constexpr std::size_t numDims() noexcept { return N; }
+
+  /**
+   * @brief Get the total number of combinations in the product
+   */
+  std::size_t size() const noexcept { return m_size; }
 
   /**
    * @brief Construct from the different vectors differently
@@ -29,15 +47,11 @@ class CartesianProduct {
    * @attention Make sure to not construct this from temporaries as this will
    * lead to undefined behaviour. TODO: Fix this at some point
    */
-  template <typename... Vecs>
-  explicit CartesianProduct(const Vecs&... vecs) {
-    static_assert(sizeof...(Vecs) == N, "Wrong number of vectors passed.");
-    static_assert(sizeof...(Vecs) > 0, "Construct from at least one vector.");
-
-    static_assert((std::is_same_v<Vecs, std::vector<T>> && ...),
-                  "All arguments must be std::vector<T>.");
+  explicit CartesianProduct(const std::vector<Ts>&... vecs) {
+    static_assert(sizeof...(Ts) > 0, "Construct from at least one vector.");
 
     assign<0>(vecs...);
+    calculateSize();
   }
 
   /**
@@ -47,8 +61,7 @@ class CartesianProduct {
   class Entry {
    private:
     friend class CartesianProduct;
-    Entry(const std::array<Vec, N>* containers,
-          const std::array<std::size_t, N>* indices)
+    Entry(const Containers& containers, const Idcs& indices)
         : m_containers(containers), m_indices(indices) {}
 
    public:
@@ -74,24 +87,13 @@ class CartesianProduct {
      * for that instead
      */
     template <std::size_t IDX>
-    const T& get() const {
+    decltype(auto) get() const {
       static_assert(IDX < N, "Dimension out of bounds.");
 
-      return (*(*m_containers)[IDX])[(*m_indices)[IDX]];
+      return std::get<IDX>(m_containers)[m_indices[IDX]];
     }
 
     /**
-     * @brief Non-templated version of @see T& dim()
-     *
-     * @param idx the dimension (@see T& dim())
-     *
-     * @returns Element of vector used in the combination
-     */
-    const T& get(const std::size_t idx) {
-      return (*(*m_containers)[idx])[(*m_indices)[idx]];
-    }
-
-    /*
      * @brief Returns index of element in combination
      *
      * @param IDX the dimension (@see T& dim())
@@ -101,7 +103,7 @@ class CartesianProduct {
     std::size_t idx() const {
       static_assert(IDX < N, "Dimension out of bounds.");
 
-      return (*m_indices)[IDX];
+      return m_indices[IDX];
     }
 
     /**
@@ -113,11 +115,11 @@ class CartesianProduct {
      *
      * @attention Does not do bounds checking, neither at compile time nor at
      * run time. Is also slower than @see std::size_t idx() */
-    std::size_t idx(const std::size_t idx) { return (*m_indices)[idx]; }
+    std::size_t idx(const std::size_t idx) { return m_indices[idx]; }
 
    private:
-    const std::array<Vec, N>* m_containers;
-    const std::array<std::size_t, N>* m_indices;
+    const Containers& m_containers;
+    const Idcs& m_indices;
   };
 
   /**
@@ -125,31 +127,42 @@ class CartesianProduct {
    * the vectors.
    */
   class Iterator {
+    template <std::size_t IDX = N - 1>
+    bool iterate() {
+      ++m_indices[IDX];
+      if (m_indices[IDX] < std::get<IDX>(m_containers).size()) return true;
+      m_indices[IDX] = 0;
+
+      if constexpr (IDX > 0)
+        return iterate<IDX - 1>();
+      else
+        return false;
+    }
+
+    template <std::size_t IDX = 0>
+    void iterateContainers() {
+      if (std::get<IDX>(m_containers).empty()) {
+        m_isFinished = true;
+        return;
+      }
+
+      if constexpr (IDX < N - 1) iterateContainers<IDX + 1>();
+    }
+
    public:
-    Iterator(const std::array<Vec, N>* containers, bool end = false)
+    Iterator(const Containers& containers, const bool end = false)
         : m_containers(containers), m_isFinished(end) {
       m_indices.fill(0);
 
       if (m_isFinished) return;
 
-      for (auto ptr : *m_containers) {
-        if (ptr->empty()) {
-          m_isFinished = true;
-          return;
-        }
-      }
+      iterateContainers();
     }
 
-    Entry operator*() const { return Entry(m_containers, &m_indices); }
+    Entry operator*() const { return Entry(m_containers, m_indices); }
 
     Iterator& operator++() {
-      for (std::size_t d = N; d-- > 0;) {
-        ++m_indices[d];
-
-        if (m_indices[d] < (*m_containers)[d]->size()) return *this;
-
-        m_indices[d] = 0;
-      }
+      if (iterate()) return *this;
 
       m_isFinished = true;
 
@@ -167,24 +180,34 @@ class CartesianProduct {
     bool operator!=(const Iterator& other) const { return !(*this == other); }
 
    private:
-    const std::array<Vec, N>* m_containers;
-    std::array<std::size_t, N> m_indices;
+    const Containers& m_containers;
+    Idcs m_indices;
     bool m_isFinished;
   };
 
-  Iterator begin() const { return Iterator(&m_containers); }
+  Iterator begin() const { return Iterator(m_containers); }
 
-  Iterator end() const { return Iterator(&m_containers, true); }
+  Iterator end() const { return Iterator(m_containers, true); }
 
  private:
-  template <std::size_t I, typename First, typename... Rest>
+  template <std::size_t IDX, typename First, typename... Rest>
   void assign(const First& first, const Rest&... rest) {
-    m_containers[I] = &first;
+    std::get<IDX>(m_containers) = first;
 
-    if constexpr (sizeof...(Rest) > 0) assign<I + 1>(rest...);
+    if constexpr (sizeof...(Rest) > 0) assign<IDX + 1>(rest...);
   }
 
-  std::array<Vec, N> m_containers;
+  template <std::size_t IDX = 0>
+  void calculateSize() {
+    if constexpr (IDX == 0) m_size = 1;
+
+    m_size *= std::get<IDX>(m_containers).size();
+
+    if constexpr (IDX < N - 1) calculateSize<IDX + 1>();
+  }
+
+  Containers m_containers;
+  std::size_t m_size;
 };  // class CartesianProduct
 
 #endif  // CARTESIAN_PRODUCT_HPP_
