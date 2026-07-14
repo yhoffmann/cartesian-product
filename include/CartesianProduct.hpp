@@ -232,6 +232,36 @@ class CartesianProduct {
       return m_idcs[IDX];
     }
 
+   private:
+    template <std::size_t IDX, std::size_t HELPER_IDX = N - 1>
+    std::size_t productOfHigherDimensionsImpl(
+        std::size_t prod = 1) const noexcept {
+      static_assert((0 <= IDX) && (IDX < N));
+      static_assert((0 <= HELPER_IDX) && (HELPER_IDX < N));
+
+      prod *= std::get<HELPER_IDX>(m_containers).size();
+
+      if constexpr (HELPER_IDX > IDX && HELPER_IDX > 0)
+        return prod * productOfHigherDimensionsImpl<IDX, HELPER_IDX - 1>();
+      else
+        return 1;
+    }
+
+    template <std::size_t IDX = N - 1>
+    std::size_t idxImpl(std::size_t sum = 0) const noexcept {
+      static_assert((0 <= IDX) && (IDX < N));
+
+      sum += productOfHigherDimensionsImpl<IDX>() * m_idcs[IDX];
+
+      if constexpr (IDX > 0)
+        return sum + idxImpl<IDX - 1>();
+      else
+        return sum;
+    }
+
+   public:
+    std::size_t idx() const noexcept { return idxImpl(); }
+
     /**
      * @brief Non-templated version of @see std::site_t idx()
      *
