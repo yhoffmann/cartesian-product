@@ -143,6 +143,45 @@ class CartesianProduct {
   }
 
   /**
+   * @brief Copy constructor
+   *
+   * @param other Another CartesianProduct with the same template params to
+   * copy.
+   *
+   * @note The template parameters obviously need to match between the
+   * instances.
+   */
+  explicit CartesianProduct(const CartesianProduct<Ts...>& other)
+      : m_containers(other.m_containers), m_size(other.m_size) {}
+
+  /**
+   * @brief Copy assignment
+   *
+   * @note The template parameters obviously need to match between the
+   * instances.
+   */
+  CartesianProduct operator=(const CartesianProduct<Ts...>& other) {
+    if (this == &other) return *this;
+
+    m_containers = other.m_containers;
+    m_size = other.m_size;
+
+    return *this;
+  }
+
+  /**
+   * @brief Move assignment
+   */
+  CartesianProduct operator=(CartesianProduct<Ts...>&& other) {
+    if (this == &other) return *this;
+
+    m_containers = std::move(other.m_containers);
+    m_size = other.m_size;
+
+    return *this;
+  }
+
+  /**
    * @brief Class that is returned by the iteration. Gives access to the
    * elements of the vectors that make up the current combination.
    */
