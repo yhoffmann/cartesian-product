@@ -60,6 +60,40 @@ class CartesianProduct {
    */
   std::size_t size() const noexcept { return m_size; }
 
+  /** @anchor set
+   * @brief Assign a vector to a directio
+   *
+   * @param IDX The index of the vector to set (see example below)
+   *
+   * @param vec The vector to replace the current one by
+   *
+   * @note Can construct from temporaries as the instance create its own copy of
+   * the vector.
+   *
+   * @attention Calling this while an Iterator currently exists will result in
+   * undefined behaviour!
+   *
+   * @code
+   *   // ... `CartesianProduct<int, double> prod` instantiated somewhere above
+   *   prod.set<0>(std::vector{1, 2, 3});  // can be set via temporaries and
+   *                                       // values that go out of scope etc.
+   *   {
+   *     const std::vector<double> x{10.0, 20.0, 30.0};
+   *     prod.set<1>(x);
+   *   }  // `x` goes out of scope, but `prod` owns a copy of it, still valid!
+   * @endcode
+   */
+  template <std::size_t IDX, typename T>
+  void set(const std::vector<T>& vec) {
+    static_assert(
+        std::is_same_v<T, std::tuple_element_t<IDX, std::tuple<Ts...>>>,
+        "The input vector needs to have the same type as what the "
+        "instance was constructed with.");
+
+    std::get<IDX>(m_containers) = vec;
+    calculateAndSetSize();
+  }
+
   /**
    * @brief Default constructor
    *
