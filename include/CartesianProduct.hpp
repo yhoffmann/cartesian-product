@@ -6,13 +6,34 @@
 #include <vector>
 
 /**
- * @brief Class that allows for iteration over cartesian-product combinations of
- * differently sized vectors of the same type. The idea is that one can use a
- * single C++ iterator to iterate over all combinations instead of writing `N`
- * different for loops
+ * @brief Class that allows for iteration over cartesian-product-like
+ * combinations of differently sized vectors holding values of arbritrary types.
+ * The idea is that one can use a single iterator to iterate over all
+ * combinations instead of writing `N` different for loops.
  *
- * @param T The type that the vectors hold
- * @param N The number of vectors to combine (dimension)
+ * @param Ts The parameter pack holding the types that the individual vectors
+ * hold
+ *
+ * @code
+ *   // example usage
+ *   const std::vector<int> numbers{1, 2, 3};
+ *   const std::vector<std::string> strings(10, "text");
+ *   const std::vector<CustomClass> customObjects(10);
+ *
+ *   CartesianProduct prod(numbers, strings, customObjects);
+ *   prod.set<0>(std::vector<int>{-1, -2, -3});  // setting one direction
+ *                                               // manually
+ *
+ *   for (const auto& entry : prod) {
+ *     std::cout
+ *         << "first component: " << e.get<0>()
+ *         << " second component: " << e.get<1>() << " "
+ *         << " index of first component: " << e.idx<0>() << " "
+ *         << " total index of this combination: " << e.idx() << "\n";
+ *   }
+ *   std::cout << "total number of entries: " << prod.size() << "\n";
+ *   std::cout << "number of dimensions: " << prod.numDims() << "\n";
+ * @endcode
  */
 template <typename... Ts>
 class CartesianProduct {
@@ -27,25 +48,58 @@ class CartesianProduct {
   /**
    * @brief The number of dimensions
    *
-   * @returns The number of dimesion
+   * @returns The number of dimesions in O(1)
    */
   static constexpr std::size_t numDims() noexcept { return N; }
 
   /**
    * @brief Get the total number of combinations in the product
+   *
+   * @returns The total number of combinations in O(1) (calculated at
+   * construction)
    */
   std::size_t size() const noexcept { return m_size; }
+
+  /**
+   * @brief Default constructor
+   *
+   * @details Constructs with empty vectors.
+   *
+   * @note You will need to use @ref set to set all vectors manually.
+   *
+   * @note You will obviously need to supply the template arguments for the
+   * class, `Ts...`, when default constructing.
+   *
+   * @code
+   *   // supply template arguments
+   *   CartesianProduct<int, double> prod;
+   *
+   *   // manually set each direction
+   *   prod.set<0>(std::vector<int>{1, 2, 3});
+   *   prod.set<1>(std::vector<double>{10.0, 20.0, 30.0});
+   * @endcode
+   */
+  explicit CartesianProduct() {};
 
   /**
    * @brief Construct from the different vectors differently
    *
    * @param vecs The vecs to build combinations from. The number of vecs to
-   * supply needs to match `N`, of course
+   * supply needs to match `N`, of course.
    *
-   * @note The vecs are not copied. The class just saves pointers to them.
+   * @note The vecs are copied into the instance. No need to keep the inputs
+   * alive longer than the instance.
    *
-   * @attention Make sure to not construct this from temporaries as this will
-   * lead to undefined behaviour. TODO: Fix this at some point
+   * @code
+   *   // supply the vectors to the constructor
+   *   // no need to specify the types manually
+   *   CartesianProduct prod(std::vector<int>{1, 2, 3},
+   *       std::vector<double>{10.0, 20.0, 30.0});
+   *
+   *   // or from existing instances
+   *   const std::vector<int> x{1, 2, 3};
+   *   const std::vector<double> y{10.0, 20.0, 30.0};
+   *   CartesianProduct prod2(x, y);
    */
   explicit CartesianProduct(const std::vector<Ts>&... vecs) {
     static_assert(sizeof...(Ts) > 0, "Construct from at least one vector.");
@@ -62,7 +116,7 @@ class CartesianProduct {
    private:
     friend class CartesianProduct;
     Entry(const Containers& containers, const Idcs& indices)
-        : m_containers(containers), m_indices(indices) {}
+        : m_containers(containers), m_idcs(indices) {}
 
    public:
     /**
@@ -83,17 +137,16 @@ class CartesianProduct {
      * @endcode
      *
      * @note Does bounds checking at compile time. This, of course, means that
-     * we cannot supply run-time values. Use @see T&dim(const std::size_t idx)
-     * for that instead
+     * we cannot supply run-time values.
      */
     template <std::size_t IDX>
     decltype(auto) get() const {
       static_assert(IDX < N, "Dimension out of bounds.");
 
-      return std::get<IDX>(m_containers)[m_indices[IDX]];
+      return std::get<IDX>(m_containers)[m_idcs[IDX]];
     }
 
-    /**
+    /** @anchor idx
      * @brief Returns index of element in combination
      *
      * @param IDX the dimension (@see T& dim())
@@ -103,7 +156,7 @@ class CartesianProduct {
     std::size_t idx() const {
       static_assert(IDX < N, "Dimension out of bounds.");
 
-      return m_indices[IDX];
+      return m_idcs[IDX];
     }
 
     /**
@@ -114,12 +167,13 @@ class CartesianProduct {
      * @returns Index of element of vector used in the combination
      *
      * @attention Does not do bounds checking, neither at compile time nor at
-     * run time. Is also slower than @see std::size_t idx() */
-    std::size_t idx(const std::size_t idx) { return m_indices[idx]; }
+     * run time. Is also slower than @ref idx
+     */
+    std::size_t idx(const std::size_t idx) { return m_idcs[idx]; }
 
    private:
     const Containers& m_containers;
-    const Idcs& m_indices;
+    const Idcs& m_idcs;
   };
 
   /**
@@ -129,9 +183,9 @@ class CartesianProduct {
   class Iterator {
     template <std::size_t IDX = N - 1>
     bool iterate() {
-      ++m_indices[IDX];
-      if (m_indices[IDX] < std::get<IDX>(m_containers).size()) return true;
-      m_indices[IDX] = 0;
+      ++m_idcs[IDX];
+      if (m_idcs[IDX] < std::get<IDX>(m_containers).size()) return true;
+      m_idcs[IDX] = 0;
 
       if constexpr (IDX > 0)
         return iterate<IDX - 1>();
@@ -152,14 +206,14 @@ class CartesianProduct {
    public:
     Iterator(const Containers& containers, const bool end = false)
         : m_containers(containers), m_isFinished(end) {
-      m_indices.fill(0);
+      m_idcs.fill(0);
 
       if (m_isFinished) return;
 
       iterateContainers();
     }
 
-    Entry operator*() const { return Entry(m_containers, m_indices); }
+    Entry operator*() const { return Entry(m_containers, m_idcs); }
 
     Iterator& operator++() {
       if (iterate()) return *this;
@@ -174,14 +228,14 @@ class CartesianProduct {
 
       if (m_isFinished != other.m_isFinished) return false;
 
-      return m_indices == other.m_indices;
+      return m_idcs == other.m_idcs;
     }
 
     bool operator!=(const Iterator& other) const { return !(*this == other); }
 
    private:
     const Containers& m_containers;
-    Idcs m_indices;
+    Idcs m_idcs;
     bool m_isFinished;
   };
 
