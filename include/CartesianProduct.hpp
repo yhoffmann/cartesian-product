@@ -26,10 +26,10 @@
  *
  *   for (const auto& entry : prod) {
  *     std::cout
- *         << "first component: " << e.get<0>()
- *         << " second component: " << e.get<1>() << " "
- *         << " index of first component: " << e.idx<0>() << " "
- *         << " total index of this combination: " << e.idx() << "\n";
+ *         << "first component: " << entry.get<0>()
+ *         << " second component: " << entry.get<1>() << " "
+ *         << " index of first component: " << entry.idx<0>() << " "
+ *         << " total index of this combination: " << entry.idx() << "\n";
  *   }
  *   std::cout << "total number of entries: " << prod.size() << "\n";
  *   std::cout << "number of dimensions: " << prod.numDims() << "\n";
@@ -134,6 +134,7 @@ class CartesianProduct {
    *   const std::vector<int> x{1, 2, 3};
    *   const std::vector<double> y{10.0, 20.0, 30.0};
    *   CartesianProduct prod2(x, y);
+   * @endcode
    */
   explicit CartesianProduct(const std::vector<Ts>&... vecs) {
     static_assert(sizeof...(Ts) > 0, "Construct from at least one vector.");
@@ -195,18 +196,18 @@ class CartesianProduct {
     /**
      * @brief Returns element in combination
      *
-     * @param IDX the dimension (example below)
+     * @param IDX Index of the element
      *
      * @returns Element of vector used in the combination
      *
      * @code{.cpp}
-     * std::vector<int> x{1, 2};
-     * std::vector<int> y{10, 20};
-     * CartesianProduct<int, 2> prod(x, y);
-     * for (const auto& combination : prod)
-     *   std::cout << combination.dim<0>() << "\n"; // this will return the
-     *                                              // values in `x` in the
-     *                                              // current combination
+     *   std::vector<int> x{1, 2};
+     *   std::vector<int> y{10, 20};
+     *   CartesianProduct<int, 2> prod(x, y);
+     *   for (const auto& combination : prod)
+     *     std::cout << combination.dim<0>() << "\n"; // this will return the
+     *                                                // values in `x` in the
+     *                                                // current combination
      * @endcode
      *
      * @note Does bounds checking at compile time. This, of course, means that
@@ -220,11 +221,12 @@ class CartesianProduct {
     }
 
     /** @anchor idx
-     * @brief Returns index of element in combination
+     * @brief Returns Index of element in combination
      *
-     * @param IDX the dimension (@see T& dim())
+     * @param IDX The dimension
      *
-     * @returns Index of element of vector used in the combination */
+     * @returns Index of element of vector used in the combination
+     */
     template <std::size_t IDX>
     std::size_t idx() const {
       static_assert(IDX < N, "Dimension out of bounds.");
@@ -263,9 +265,9 @@ class CartesianProduct {
     std::size_t idx() const noexcept { return idxImpl(); }
 
     /**
-     * @brief Non-templated version of @see std::site_t idx()
+     * @brief Non-templated version of @ref idx()
      *
-     * @param IDX the dimension (@see T& dim())
+     * @param IDX The dimension
      *
      * @returns Index of element of vector used in the combination
      *
