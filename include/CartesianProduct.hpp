@@ -139,7 +139,7 @@ class CartesianProduct {
     static_assert(sizeof...(Ts) > 0, "Construct from at least one vector.");
 
     assign<0>(vecs...);
-    calculateSize();
+    calculateAndSetSize();
   }
 
   /**
@@ -324,13 +324,9 @@ class CartesianProduct {
     if constexpr (sizeof...(Rest) > 0) assign<IDX + 1>(rest...);
   }
 
-  template <std::size_t IDX = 0>
-  void calculateSize() {
-    if constexpr (IDX == 0) m_size = 1;
-
-    m_size *= std::get<IDX>(m_containers).size();
-
-    if constexpr (IDX < N - 1) calculateSize<IDX + 1>();
+  void calculateAndSetSize() noexcept {
+    m_size = std::apply([](const auto&... vecs) { return (vecs.size() * ...); },
+                        m_containers);
   }
 
   Containers m_containers;
