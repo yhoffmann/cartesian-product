@@ -262,6 +262,34 @@ class CartesianProduct {
     }
 
    public:
+    /**
+     * @brief Get the total index of the entry
+     *
+     * @returns The total index
+     *
+     * @details Returns the total index of the entry. This is same index as if
+     * we had constructed a 1d array of all the combinations. See the code
+     * example below for an example.
+     *
+     * @code
+     *   const std::vector<int> numbers{1, 2};
+     *   const std::vector<char> letters{'a', 'b'};
+     *   CartesianProduct prod(numbers, letter);
+     *
+     *   for (const auto& e : prod) {
+     *     std::cout
+     *         << e.get<0>() << " " << e.get<1>()
+     *         << " | indices: " << e.idx<0>() << " " << e.idx<1>()
+     *         << " | total index: " << e.idx() << "\n";
+     *   }
+     *   // this loop will print:
+     *   // 1 a | indices: 0 0 | total index: 0
+     *   // 1 b | indices: 0 1 | total index: 1
+     *   // 2 a | indices: 1 0 | total index: 2
+     *   // 2 b | indices: 1 1 | total index: 3
+     * @endcode
+     *
+     */
     std::size_t idx() const noexcept { return idxImpl(); }
 
     /**
