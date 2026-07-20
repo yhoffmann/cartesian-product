@@ -161,7 +161,7 @@ class CartesianProduct {
    * @note The template parameters obviously need to match between the
    * instances.
    */
-  CartesianProduct operator=(const CartesianProduct<Ts...>& other) {
+  CartesianProduct& operator=(const CartesianProduct<Ts...>& other) {
     if (this == &other) return *this;
 
     m_containers = other.m_containers;
@@ -173,7 +173,7 @@ class CartesianProduct {
   /**
    * @brief Move assignment
    */
-  CartesianProduct operator=(CartesianProduct<Ts...>&& other) {
+  CartesianProduct& operator=(CartesianProduct<Ts...>&& other) {
     if (this == &other) return *this;
 
     m_containers = std::move(other.m_containers);
