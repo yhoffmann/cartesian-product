@@ -1,9 +1,7 @@
 #ifndef CARTESIAN_PRODUCT_HPP_
 #define CARTESIAN_PRODUCT_HPP_
 
-#include <array>
-#include <tuple>
-#include <vector>
+#include "ProductEntry.hpp"
 
 /**
  * @brief Class that allows for iteration over cartesian-product-like
@@ -183,133 +181,6 @@ class CartesianProduct {
   }
 
   /**
-   * @brief Class that is returned by the iteration. Gives access to the
-   * elements of the vectors that make up the current combination.
-   */
-  class Entry {
-   private:
-    friend class CartesianProduct;
-    Entry(const Containers& containers, const Idcs& indices)
-        : m_containers(containers), m_idcs(indices) {}
-
-   public:
-    /**
-     * @brief Returns element in combination
-     *
-     * @param IDX Index of the element
-     *
-     * @returns Element of vector used in the combination
-     *
-     * @code{.cpp}
-     *   std::vector<int> x{1, 2};
-     *   std::vector<int> y{10, 20};
-     *   CartesianProduct<int, 2> prod(x, y);
-     *   for (const auto& combination : prod)
-     *     std::cout << combination.dim<0>() << "\n"; // this will return the
-     *                                                // values in `x` in the
-     *                                                // current combination
-     * @endcode
-     *
-     * @note Does bounds checking at compile time. This, of course, means that
-     * we cannot supply run-time values.
-     */
-    template <std::size_t IDX>
-    decltype(auto) get() const {
-      static_assert(IDX < N, "Dimension out of bounds.");
-
-      return std::get<IDX>(m_containers)[m_idcs[IDX]];
-    }
-
-    /** @anchor idx
-     * @brief Returns Index of element in combination
-     *
-     * @param IDX The dimension
-     *
-     * @returns Index of element of vector used in the combination
-     */
-    template <std::size_t IDX>
-    std::size_t idx() const {
-      static_assert(IDX < N, "Dimension out of bounds.");
-
-      return m_idcs[IDX];
-    }
-
-   private:
-    template <std::size_t IDX, std::size_t HELPER_IDX = N - 1>
-    std::size_t productOfHigherDimensionsImpl(
-        std::size_t prod = 1) const noexcept {
-      static_assert((0 <= IDX) && (IDX < N));
-      static_assert((0 <= HELPER_IDX) && (HELPER_IDX < N));
-
-      prod *= std::get<HELPER_IDX>(m_containers).size();
-
-      if constexpr (HELPER_IDX > IDX && HELPER_IDX > 0)
-        return prod * productOfHigherDimensionsImpl<IDX, HELPER_IDX - 1>();
-      else
-        return 1;
-    }
-
-    template <std::size_t IDX = N - 1>
-    std::size_t idxImpl(std::size_t sum = 0) const noexcept {
-      static_assert((0 <= IDX) && (IDX < N));
-
-      sum += productOfHigherDimensionsImpl<IDX>() * m_idcs[IDX];
-
-      if constexpr (IDX > 0)
-        return sum + idxImpl<IDX - 1>();
-      else
-        return sum;
-    }
-
-   public:
-    /**
-     * @brief Get the total index of the entry
-     *
-     * @returns The total index
-     *
-     * @details Returns the total index of the entry. This is same index as if
-     * we had constructed a 1d array of all the combinations. See the code
-     * example below for an example.
-     *
-     * @code
-     *   const std::vector<int> numbers{1, 2};
-     *   const std::vector<char> letters{'a', 'b'};
-     *   CartesianProduct prod(numbers, letter);
-     *
-     *   for (const auto& e : prod) {
-     *     std::cout
-     *         << e.get<0>() << " " << e.get<1>()
-     *         << " | indices: " << e.idx<0>() << " " << e.idx<1>()
-     *         << " | total index: " << e.idx() << "\n";
-     *   }
-     *   // this loop will print:
-     *   // 1 a | indices: 0 0 | total index: 0
-     *   // 1 b | indices: 0 1 | total index: 1
-     *   // 2 a | indices: 1 0 | total index: 2
-     *   // 2 b | indices: 1 1 | total index: 3
-     * @endcode
-     *
-     */
-    std::size_t idx() const noexcept { return idxImpl(); }
-
-    /**
-     * @brief Non-templated version of @ref idx()
-     *
-     * @param IDX The dimension
-     *
-     * @returns Index of element of vector used in the combination
-     *
-     * @attention Does not do bounds checking, neither at compile time nor at
-     * run time. Is also slower than @ref idx
-     */
-    std::size_t idx(const std::size_t idx) { return m_idcs[idx]; }
-
-   private:
-    const Containers& m_containers;
-    const Idcs& m_idcs;
-  };
-
-  /**
    * @brief Class the handles the iteration over combinations of entries from
    * the vectors.
    */
@@ -346,7 +217,9 @@ class CartesianProduct {
       iterateContainers();
     }
 
-    Entry operator*() const { return Entry(m_containers, m_idcs); }
+    ProductEntry<Ts...> operator*() const {
+      return ProductEntry<Ts...>(m_containers, m_idcs);
+    }
 
     Iterator& operator++() {
       if (iterate()) return *this;
